@@ -1,0 +1,274 @@
+/* ─── Riff Mark Panel — DAW-inspired dark UI ─── */
+
+:host {
+  display: block;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px;
+  line-height: 1;
+  color: #F9FAFB;
+}
+
+.rm-panel {
+  background: #1A1A1A;
+  border-top: 1px solid rgba(245, 158, 11, 0.4);
+  padding: 0;
+  overflow: hidden;
+}
+
+/* ─── Header ─── */
+.rm-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid #374151;
+  min-height: 44px;
+}
+
+.rm-logo {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #F59E0B;
+  text-transform: uppercase;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.rm-logo-dot {
+  color: #6B7280;
+  margin: 0 6px;
+}
+
+.rm-video-title {
+  font-size: 11px;
+  color: #9CA3AF;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.rm-drop-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #F59E0B;
+  color: #111827;
+  border: none;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.rm-drop-btn:hover {
+  background: #D97706;
+}
+
+.rm-drop-btn:disabled {
+  background: #374151;
+  color: #6B7280;
+  cursor: not-allowed;
+}
+
+.rm-drop-btn-icon {
+  font-size: 10px;
+}
+
+/* ─── Chip Row ─── */
+.rm-chips-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  overflow-x: auto;
+  min-height: 48px;
+  scrollbar-width: none;
+}
+
+.rm-chips-row::-webkit-scrollbar {
+  display: none;
+}
+
+.rm-empty-state {
+  font-size: 12px;
+  color: #6B7280;
+  font-style: italic;
+}
+
+/* ─── Mark Chip ─── */
+.rm-chip {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  height: 32px;
+  background: #2D2D2D;
+  border: 1px solid #374151;
+  border-radius: 16px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: border-color 0.15s, background 0.15s;
+  user-select: none;
+}
+
+.rm-chip:hover {
+  border-color: #D97706;
+  background: #363636;
+}
+
+.rm-chip.rm-chip--active {
+  border-color: #F59E0B;
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.rm-chip-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: #F9FAFB;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rm-chip-time {
+  font-size: 11px;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  color: #9CA3AF;
+}
+
+.rm-chip-erase {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  width: 16px;
+  height: 16px;
+  background: #374151;
+  border: 1px solid #4B5563;
+  border-radius: 50%;
+  color: #9CA3AF;
+  font-size: 9px;
+  cursor: pointer;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: background 0.1s, color 0.1s;
+}
+
+.rm-chip:hover .rm-chip-erase {
+  display: flex;
+}
+
+.rm-chip-erase:hover {
+  background: #EF4444;
+  color: #fff;
+  border-color: #EF4444;
+}
+
+/* ─── Inline rename input ─── */
+.rm-chip-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #F9FAFB;
+  font-size: 12px;
+  font-family: inherit;
+  font-weight: 500;
+  width: 80px;
+  padding: 0;
+}
+
+/* ─── Loop Status Bar ─── */
+.rm-loop-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-top: 1px solid #374151;
+  background: rgba(245, 158, 11, 0.06);
+  min-height: 36px;
+
+  /* Slide-in animation */
+  animation: rm-slide-in 0.2s ease forwards;
+}
+
+@keyframes rm-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rm-loop-icon {
+  color: #F59E0B;
+  font-size: 13px;
+}
+
+.rm-loop-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #F59E0B;
+  text-transform: uppercase;
+}
+
+.rm-loop-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #F9FAFB;
+}
+
+.rm-loop-range {
+  font-size: 11px;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  color: #9CA3AF;
+}
+
+.rm-loop-spacer {
+  flex: 1;
+}
+
+.rm-release-btn {
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid #374151;
+  border-radius: 4px;
+  color: #9CA3AF;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.rm-release-btn:hover {
+  border-color: #D97706;
+  color: #F59E0B;
+}
+
+/* ─── Drop Mark pulse animation ─── */
+@keyframes rm-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.6); }
+  70% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
+
+.rm-drop-btn.rm-pulse {
+  animation: rm-pulse 0.5s ease forwards;
+}
