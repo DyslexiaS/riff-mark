@@ -40,14 +40,19 @@ export async function mountPanel(container: HTMLElement, ctx: ContentScriptConte
 
   render(container, videoId, ctx);
 
-  // Re-render scrubber when video metadata is ready
   const video = getVideoElement();
   if (video) {
-    video.addEventListener('loadedmetadata', () => {
-      updateScrubber();
-    });
+    video.addEventListener('loadedmetadata', updateScrubber);
   }
 }
+
+// ─── Layout ──────────────────────────────────────────────────────────────────
+//
+//  ┌──────────────────────────────────────────────────────────────┐
+//  │ ♩  [ ✦ DROP MARK ]  │  [Intro 0:00]  [Chorus 1:32]  ...    │  ← toolbar
+//  ├──────────────────────────────────────────────────────────────┤
+//  │ ● LOOPING: Chorus  1:32 → 3:05                  [RELEASE]  │  ← only when active
+//  └──────────────────────────────────────────────────────────────┘
 
 function render(container: HTMLElement, videoId: string, ctx: ContentScriptContext): void {
   container.innerHTML = '';
@@ -55,77 +60,67 @@ function render(container: HTMLElement, videoId: string, ctx: ContentScriptConte
   const panel = document.createElement('div');
   panel.className = 'rm-panel';
 
-  // Header
-  const header = document.createElement('div');
-  header.className = 'rm-header';
+  const toolbar = document.createElement('div');
+  toolbar.className = 'rm-toolbar';
 
-  const logo = document.createElement('span');
-  logo.className = 'rm-logo';
-  logo.textContent = '♩ RIFF MARK';
-
-  const dot = document.createElement('span');
-  dot.className = 'rm-logo-dot';
-  dot.textContent = '·';
-
-  const videoTitle = document.createElement('span');
-  videoTitle.className = 'rm-video-title';
-  videoTitle.textContent = document.title.replace(' - YouTube', '').trim();
+  const brand = document.createElement('span');
+  brand.className = 'rm-brand';
+  brand.textContent = '♩';
+  brand.title = 'Riff Mark';
 
   const dropBtn = document.createElement('button');
   dropBtn.className = 'rm-drop-btn';
-  dropBtn.innerHTML = '<span class="rm-drop-btn-icon">✦</span> DROP MARK';
+  dropBtn.innerHTML = '✦ DROP MARK';
   dropBtn.disabled = state.marks.length >= MAX_MARKS;
   if (state.marks.length >= MAX_MARKS) {
     dropBtn.title = 'Mark limit reached — ERASE a mark to add more.';
   }
 
-  dropBtn.addEventListener('click', () => onDropMark(videoId, dropBtn, chipsRow, loopStatus, ctx));
+  const divider = document.createElement('div');
+  divider.className = 'rm-divider';
 
-  header.append(logo, dot, videoTitle, dropBtn);
+  const chips = document.createElement('div');
+  chips.className = 'rm-chips';
 
-  // Chips row
-  const chipsRow = document.createElement('div');
-  chipsRow.className = 'rm-chips-row';
-
-  // Loop status (hidden initially)
   const loopStatus = document.createElement('div');
   loopStatus.className = 'rm-loop-status';
   loopStatus.style.display = 'none';
 
-  renderChips(chipsRow, loopStatus, videoId, ctx);
+  dropBtn.addEventListener('click', () => onDropMark(videoId, dropBtn, chips, loopStatus, ctx));
 
-  panel.append(header, chipsRow, loopStatus);
+  toolbar.append(brand, dropBtn, divider, chips);
+  panel.append(toolbar, loopStatus);
   container.appendChild(panel);
 
+  renderChips(chips, loopStatus, videoId, ctx);
   updateScrubber();
 }
 
 function renderChips(
-  chipsRow: HTMLElement,
+  chips: HTMLElement,
   loopStatus: HTMLElement,
   videoId: string,
   ctx: ContentScriptContext,
 ): void {
-  chipsRow.innerHTML = '';
+  chips.innerHTML = '';
 
   if (state.marks.length === 0) {
     const empty = document.createElement('span');
     empty.className = 'rm-empty-state';
     empty.textContent = 'Drop your first mark to begin.';
-    chipsRow.appendChild(empty);
+    chips.appendChild(empty);
     hideLoopStatus(loopStatus);
     return;
   }
 
   for (const mark of state.marks) {
-    const chip = buildChip(mark, chipsRow, loopStatus, videoId, ctx);
-    chipsRow.appendChild(chip);
+    chips.appendChild(buildChip(mark, chips, loopStatus, videoId, ctx));
   }
 }
 
 function buildChip(
   mark: Mark,
-  chipsRow: HTMLElement,
+  chips: HTMLElement,
   loopStatus: HTMLElement,
   videoId: string,
   ctx: ContentScriptContext,
@@ -150,15 +145,11 @@ function buildChip(
 
   eraseBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    onEraseMark(mark.id, chipsRow, loopStatus, videoId, ctx);
+    onEraseMark(mark.id, chips, loopStatus, videoId, ctx);
   });
 
-  // Single click → loop this section
-  chip.addEventListener('click', () => {
-    onActivateMark(mark.id, chipsRow, loopStatus, ctx);
-  });
+  chip.addEventListener('click', () => onActivateMark(mark.id, chips, loopStatus, ctx));
 
-  // Double click on name → INSCRIBE mode
   nameEl.addEventListener('dblclick', (e) => {
     e.stopPropagation();
     onInscribe(nameEl, mark, videoId);
@@ -168,20 +159,21 @@ function buildChip(
   return chip;
 }
 
+// ─── Actions ──────────────────────────────────────────────────────────────────
+
 function onDropMark(
   videoId: string,
   dropBtn: HTMLButtonElement,
-  chipsRow: HTMLElement,
+  chips: HTMLElement,
   loopStatus: HTMLElement,
   ctx: ContentScriptContext,
 ): void {
   const video = getVideoElement();
   const time = video?.currentTime ?? 0;
-  const name = `Mark ${state.marks.length + 1}`;
 
   const newMark: Mark = {
     id: createMarkId(),
-    name,
+    name: `Mark ${state.marks.length + 1}`,
     time,
     createdAt: Date.now(),
   };
@@ -189,9 +181,8 @@ function onDropMark(
   state.marks = [...state.marks, newMark].sort((a, b) => a.time - b.time);
   saveMarks(videoId, state.marks);
 
-  // Pulse animation
   dropBtn.classList.remove('rm-pulse');
-  void dropBtn.offsetWidth; // reflow to restart animation
+  void dropBtn.offsetWidth;
   dropBtn.classList.add('rm-pulse');
   dropBtn.addEventListener('animationend', () => dropBtn.classList.remove('rm-pulse'), { once: true });
 
@@ -200,13 +191,13 @@ function onDropMark(
     dropBtn.title = 'Mark limit reached — ERASE a mark to add more.';
   }
 
-  renderChips(chipsRow, loopStatus, videoId, ctx);
+  renderChips(chips, loopStatus, videoId, ctx);
   updateScrubber();
 }
 
 function onActivateMark(
   markId: string,
-  chipsRow: HTMLElement,
+  chips: HTMLElement,
   loopStatus: HTMLElement,
   ctx: ContentScriptContext,
 ): void {
@@ -219,20 +210,19 @@ function onActivateMark(
   state.activeMarkId = markId;
 
   const endTime = getLoopEnd(state.marks, markId);
-  startLoop(ctx, video, mark.time, endTime, () => updateScrubber());
+  startLoop(ctx, video, mark.time, endTime, updateScrubber);
 
-  // Update chip styles
-  chipsRow.querySelectorAll<HTMLElement>('.rm-chip').forEach((chip) => {
+  chips.querySelectorAll<HTMLElement>('.rm-chip').forEach((chip) => {
     chip.classList.toggle('rm-chip--active', chip.dataset.markId === markId);
   });
 
-  showLoopStatus(loopStatus, mark, endTime);
+  showLoopStatus(loopStatus, mark, endTime, chips);
   updateScrubber();
 }
 
 function onEraseMark(
   markId: string,
-  chipsRow: HTMLElement,
+  chips: HTMLElement,
   loopStatus: HTMLElement,
   videoId: string,
   ctx: ContentScriptContext,
@@ -246,15 +236,13 @@ function onEraseMark(
   state.marks = state.marks.filter((m) => m.id !== markId);
   saveMarks(videoId, state.marks);
 
-  const dropBtn = chipsRow
-    .closest('.rm-panel')
-    ?.querySelector<HTMLButtonElement>('.rm-drop-btn');
+  const dropBtn = chips.closest('.rm-toolbar')?.querySelector<HTMLButtonElement>('.rm-drop-btn');
   if (dropBtn && state.marks.length < MAX_MARKS) {
     dropBtn.disabled = false;
     dropBtn.title = '';
   }
 
-  renderChips(chipsRow, loopStatus, videoId, ctx);
+  renderChips(chips, loopStatus, videoId, ctx);
   updateScrubber();
 }
 
@@ -283,12 +271,8 @@ function onInscribe(nameEl: HTMLElement, mark: Mark, videoId: string): void {
   };
 
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      confirm();
-    } else if (e.key === 'Escape') {
-      cancel();
-    }
+    if (e.key === 'Enter') { e.preventDefault(); confirm(); }
+    else if (e.key === 'Escape') { cancel(); }
     e.stopPropagation();
   });
 
@@ -296,13 +280,21 @@ function onInscribe(nameEl: HTMLElement, mark: Mark, videoId: string): void {
   input.addEventListener('click', (e) => e.stopPropagation());
 }
 
-function showLoopStatus(loopStatus: HTMLElement, mark: Mark, endTime: number): void {
+// ─── Loop status ──────────────────────────────────────────────────────────────
+
+function showLoopStatus(
+  loopStatus: HTMLElement,
+  mark: Mark,
+  endTime: number,
+  chips: HTMLElement,
+): void {
   loopStatus.style.display = 'flex';
   loopStatus.innerHTML = `
-    <span class="rm-loop-icon">🔁</span>
-    <span class="rm-loop-label">LOOPING:</span>
-    <span class="rm-loop-name">${mark.name}</span>
-    <span class="rm-loop-range">(${formatTime(mark.time)} → ${formatTime(endTime)})</span>
+    <span class="rm-loop-dot"></span>
+    <span class="rm-loop-text">
+      LOOPING &nbsp;<strong>${mark.name}</strong>&nbsp;
+      <code>${formatTime(mark.time)} → ${formatTime(endTime)}</code>
+    </span>
     <span class="rm-loop-spacer"></span>
     <button class="rm-release-btn">RELEASE</button>
   `;
@@ -311,12 +303,7 @@ function showLoopStatus(loopStatus: HTMLElement, mark: Mark, endTime: number): v
     stopLoop();
     state.activeMarkId = null;
     hideLoopStatus(loopStatus);
-
-    loopStatus
-      .closest('.rm-panel')
-      ?.querySelectorAll<HTMLElement>('.rm-chip')
-      .forEach((chip) => chip.classList.remove('rm-chip--active'));
-
+    chips.querySelectorAll<HTMLElement>('.rm-chip').forEach((c) => c.classList.remove('rm-chip--active'));
     updateScrubber();
   });
 }
