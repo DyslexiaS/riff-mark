@@ -28,6 +28,10 @@ export async function mountPanel(container: HTMLElement, ctx: ContentScriptConte
   if (!videoId) return;
 
   state.marks = await getMarks(videoId);
+
+  // Context may have been invalidated while awaiting storage — bail out.
+  if (ctx.signal.aborted) return;
+
   state.activeMarkId = null;
 
   if (state.marks.length > 0) {

@@ -108,6 +108,11 @@ Do not repeat these mistakes.
 **Cause:** `waitForAnchor()` resolves immediately on navigation because `#below-the-fold` still exists from the prior page. `ui.mount()` attaches to the old element, then YouTube replaces that element, silently removing the panel with it.
 **Fix:** Use `waitForAnchorRefresh()` on navigation — wait for `#below-the-fold` to disappear then reappear (i.e. the fresh element). Also attach a `watchForRemoval()` MutationObserver on the panel's parent after every mount so any unexpected removal triggers an automatic re-mount.
 
+### 6. `browser.storage == null` error from WXT storage module
+**Symptom:** Console error thrown from inside WXT's storage module: `You must add the 'storage' permission to your manifest to use 'wxt/storage'` — even though the permission IS in the manifest.
+**Cause:** The content script is orphaned — the extension was reloaded or rebuilt while a YouTube tab was already open. The old content script keeps running but loses its bridge to extension APIs, so `browser.storage` becomes inaccessible.
+**Fix:** Wrap every function in `utils/storage.ts` in try/catch. Read functions return `[]`/`null` on error; write functions silently no-op. Also check `ctx.signal.aborted` after each `await` in `panel.ts` so orphaned async chains stop immediately instead of continuing into further storage calls.
+
 ### 5. Edit/delete actions not firing
 **Symptom:** Clicking ✎ or ✕ buttons on mark chips does nothing.
 **Cause:** Same root cause as #2/#3 — YouTube's overlay intercepted pointer events before they reached the shadow DOM.
