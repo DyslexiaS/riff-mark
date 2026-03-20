@@ -1,6 +1,6 @@
 {
-  "name": "wxt-react-starter",
-  "description": "manifest.json description",
+  "name": "riff-mark",
+  "description": "Drop timestamp marks and loop sections on YouTube guitar tutorials.",
   "private": true,
   "version": "0.0.0",
   "type": "module",

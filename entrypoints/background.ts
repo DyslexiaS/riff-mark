@@ -1,3 +1,3 @@
 export default defineBackground(() => {
-  console.log('Hello background!', { id: browser.runtime.id });
+  // Service worker — stateless, storage events only
 });
