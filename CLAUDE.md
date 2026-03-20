@@ -30,6 +30,33 @@ You are a **Staff Engineer** collaborating on this project. You bring:
 
 ---
 
+## Content Script Architecture
+
+The YouTube content script follows a **Context + Pure DOM** pattern:
+
+```
+youtube.content/
+├── index.ts              # Entrypoint: mount lifecycle, SPA navigation, self-healing
+├── panel.ts              # Orchestrator: state, actions, event wiring, re-render
+├── dom.ts                # Pure DOM builders: data in → elements out, no side effects
+├── loop-engine.ts        # Loop interval management (start/stop/isLooping)
+├── scrubber-overlay.ts   # Progress bar triangles + loop highlight
+└── style.css             # All panel styles (injected via Shadow DOM)
+```
+
+### Design Principles
+
+- **PanelContext over prop drilling** — A module-level `PanelContext` object holds `videoId`, `ctx`, and DOM element refs. Created once in `mountPanel()`, read by all actions. No function takes more than 2 params.
+- **dom.ts is pure** — Exports factory functions that accept data and return elements. No event wiring, no state access, no storage imports. This keeps rendering testable and forces all behavior into `panel.ts`.
+- **panel.ts is the orchestrator** — Owns state (`marks`, `activeMarkId`), wires events to DOM elements returned by `dom.ts`, calls storage/loop-engine. Single `rerender()` function rebuilds chips and updates scrubber.
+- **No pub/sub, no event bus** — One subscriber (the panel) doesn't justify the indirection. State flows linearly: action → mutate state → `rerender()`.
+- **Cleanup is explicit** — `videoCleanup` callback stored on mount, called on cleanup. `panelCtx` nulled on cleanup to prevent stale action handlers.
+
+### Why not separate render.ts + actions.ts?
+Circular dependency risk: actions need to call `rerender()`, render needs to wire actions. Keeping them in one file makes the dependency graph acyclic: `index.ts → panel.ts → dom.ts`.
+
+---
+
 ## Domain Know-How: Browser Extensions (WXT + React)
 
 ### Architecture

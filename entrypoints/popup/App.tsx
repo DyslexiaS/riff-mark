@@ -1,17 +1,15 @@
 import { useEffect, useState } from 'react';
-import { storage } from 'wxt/utils/storage';
 import type { HistoryEntry } from '../../utils/storage';
+import { getHistory } from '../../utils/storage';
 import './App.css';
-
-const HISTORY_KEY = 'local:history' as const;
 
 function App() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    storage.getItem<HistoryEntry[]>(HISTORY_KEY).then((data) => {
-      setHistory(data ?? []);
+    getHistory().then((data) => {
+      setHistory(data);
       setLoading(false);
     });
   }, []);
