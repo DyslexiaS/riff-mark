@@ -3,11 +3,10 @@ import type { Mark } from '../../utils/storage';
 import { getMarks, saveMarks } from '../../utils/storage';
 import { getVideoId, getVideoElement } from '../../utils/youtube';
 import { formatTime } from '../../utils/time';
-import { startLoop, stopLoop } from './loop-engine';
+import { stopLoop } from './loop-engine';
 import { renderScrubberMarks, removeScrubberOverlay } from './scrubber-overlay';
 
 const MAX_MARKS = 20;
-const LAST_MARK_LOOP_DURATION = 30;
 
 interface PanelState {
   marks: Mark[];
@@ -23,13 +22,6 @@ function createMarkId(): string {
   return `mark_${Date.now()}`;
 }
 
-function getLoopEnd(marks: Mark[], activeMarkId: string): number {
-  const idx = marks.findIndex((m) => m.id === activeMarkId);
-  if (idx === -1) return 0;
-  return idx < marks.length - 1
-    ? marks[idx + 1].time
-    : marks[idx].time + LAST_MARK_LOOP_DURATION;
-}
 
 export async function mountPanel(container: HTMLElement, ctx: ContentScriptContext): Promise<void> {
   const videoId = getVideoId();
@@ -130,6 +122,10 @@ function buildChip(
   if (mark.id === state.activeMarkId) chip.classList.add('rm-chip--active');
   chip.dataset.markId = mark.id;
 
+  // ── Clickable body: seek to time ──
+  const body = document.createElement('div');
+  body.className = 'rm-chip-body';
+
   const nameEl = document.createElement('span');
   nameEl.className = 'rm-chip-name';
   nameEl.textContent = mark.name;
@@ -138,24 +134,33 @@ function buildChip(
   timeEl.className = 'rm-chip-time';
   timeEl.textContent = formatTime(mark.time);
 
-  const eraseBtn = document.createElement('button');
-  eraseBtn.className = 'rm-chip-erase';
-  eraseBtn.textContent = '✕';
-  eraseBtn.title = 'ERASE';
+  body.append(nameEl, timeEl);
+  body.addEventListener('click', () => onSeekToMark(mark.id, chips));
 
-  eraseBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    onEraseMark(mark.id, chips, loopStatus, videoId, ctx);
-  });
+  // ── Always-visible action icons ──
+  const actions = document.createElement('div');
+  actions.className = 'rm-chip-actions';
 
-  chip.addEventListener('click', () => onActivateMark(mark.id, chips, loopStatus, ctx));
-
-  nameEl.addEventListener('dblclick', (e) => {
+  const editBtn = document.createElement('button');
+  editBtn.className = 'rm-chip-action';
+  editBtn.textContent = '✎';
+  editBtn.title = 'Edit name';
+  editBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     onInscribe(nameEl, mark, videoId);
   });
 
-  chip.append(nameEl, timeEl, eraseBtn);
+  const deleteBtn = document.createElement('button');
+  deleteBtn.className = 'rm-chip-action rm-chip-action--delete';
+  deleteBtn.textContent = '✕';
+  deleteBtn.title = 'Delete mark';
+  deleteBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    onEraseMark(mark.id, chips, loopStatus, videoId, ctx);
+  });
+
+  actions.append(editBtn, deleteBtn);
+  chip.append(body, actions);
   return chip;
 }
 
@@ -195,28 +200,20 @@ function onDropMark(
   updateScrubber();
 }
 
-function onActivateMark(
-  markId: string,
-  chips: HTMLElement,
-  loopStatus: HTMLElement,
-  ctx: ContentScriptContext,
-): void {
+function onSeekToMark(markId: string, chips: HTMLElement): void {
   const video = getVideoElement();
   if (!video) return;
 
   const mark = state.marks.find((m) => m.id === markId);
   if (!mark) return;
 
-  state.activeMarkId = markId;
-
-  const endTime = getLoopEnd(state.marks, markId);
-  startLoop(ctx, video, mark.time, endTime, updateScrubber);
+  video.currentTime = mark.time;
 
   chips.querySelectorAll<HTMLElement>('.rm-chip').forEach((chip) => {
     chip.classList.toggle('rm-chip--active', chip.dataset.markId === markId);
   });
 
-  showLoopStatus(loopStatus, mark, endTime, chips);
+  state.activeMarkId = markId;
   updateScrubber();
 }
 
