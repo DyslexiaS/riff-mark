@@ -20,12 +20,21 @@ export interface HistoryEntry {
 const HISTORY_KEY = 'local:history' as const;
 const getKey = (videoId: string) => `local:marks:${videoId}` as const;
 
-// All storage functions are wrapped in try/catch. When a content script is
-// orphaned (extension reloaded while tab is open), browser.storage becomes
-// inaccessible and WXT throws "browser.storage == null". We silently degrade
-// rather than surface an unhandled error to the user.
+// When a content script is orphaned (extension reloaded while tab is open),
+// chrome.runtime.id throws and browser.storage becomes null. Guard every
+// storage call so the WXT driver never reaches its "browser.storage == null"
+// throw path — prevents noisy console errors even though try/catch would
+// swallow them.
+function isContextValid(): boolean {
+  try {
+    return !!browser.runtime.id;
+  } catch {
+    return false;
+  }
+}
 
 export async function getMarks(videoId: string): Promise<Mark[]> {
+  if (!isContextValid()) return [];
   try {
     const data = await storage.getItem<VideoMarks>(getKey(videoId));
     return data?.marks ?? [];
@@ -35,6 +44,7 @@ export async function getMarks(videoId: string): Promise<Mark[]> {
 }
 
 export async function saveMarks(videoId: string, marks: Mark[]): Promise<void> {
+  if (!isContextValid()) return;
   try {
     await storage.setItem(getKey(videoId), { marks });
   } catch {
@@ -43,6 +53,7 @@ export async function saveMarks(videoId: string, marks: Mark[]): Promise<void> {
 }
 
 export async function getHistory(): Promise<HistoryEntry[]> {
+  if (!isContextValid()) return [];
   try {
     return (await storage.getItem<HistoryEntry[]>(HISTORY_KEY)) ?? [];
   } catch {
@@ -51,6 +62,7 @@ export async function getHistory(): Promise<HistoryEntry[]> {
 }
 
 export async function updateHistory(videoId: string, title: string): Promise<void> {
+  if (!isContextValid()) return;
   try {
     const history = await getHistory();
     const rest = history.filter((e) => e.videoId !== videoId);

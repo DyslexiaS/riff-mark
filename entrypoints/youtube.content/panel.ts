@@ -34,19 +34,15 @@ function createMarkId(): string {
 
 // ─── Mount / Cleanup ─────────────────────────────────────────────────────────
 
-export async function mountPanel(container: HTMLElement, ctx: ContentScriptContext): Promise<void> {
+export function mountPanel(container: HTMLElement, ctx: ContentScriptContext): void {
   const videoId = getVideoId();
   if (!videoId) return;
 
-  state.marks = await getMarks(videoId);
-  if (ctx.signal.aborted) return;
+  // Render skeleton synchronously so the panel is visible immediately.
+  state.marks = [];
   state.activeMarkId = null;
 
-  if (state.marks.length > 0) {
-    updateHistory(videoId, document.title.replace(' - YouTube', '').trim());
-  }
-
-  const layout = createPanelLayout(state.marks.length);
+  const layout = createPanelLayout(0);
   container.innerHTML = '';
   container.appendChild(layout.panel);
 
@@ -69,6 +65,16 @@ export async function mountPanel(container: HTMLElement, ctx: ContentScriptConte
     video.addEventListener('loadedmetadata', updateScrubber);
     videoCleanup = () => video.removeEventListener('loadedmetadata', updateScrubber);
   }
+
+  // Load saved marks asynchronously, then re-render with data.
+  getMarks(videoId).then((marks) => {
+    if (ctx.signal.aborted || panelCtx?.videoId !== videoId) return;
+    state.marks = marks;
+    if (marks.length > 0) {
+      updateHistory(videoId, document.title.replace(' - YouTube', '').trim());
+    }
+    rerender();
+  });
 }
 
 export function cleanupPanel(): void {
