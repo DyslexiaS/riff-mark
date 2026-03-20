@@ -46,9 +46,11 @@ You are a **Staff Engineer** collaborating on this project. You bring:
 - Manifest permissions: request the **minimum** needed — users distrust over-permissioned extensions
 
 ### WXT Specifics
-- Use `defineBackground`, `defineContentScript`, `defineUnlistedPage` from `wxt/sandbox`
+- Import paths: `wxt/utils/content-script-context`, `wxt/utils/storage` — **not** `wxt/sandbox` or `wxt/storage`
+- `cssInjectionMode: 'ui'` only injects CSS that is explicitly `import`ed in the content script entry file — always add `import './style.css'`
+- `ctx.setInterval` returns `number`, not `NodeJS.Timeout` — type the variable as `number | null`
 - HMR works in popup; content scripts require manual reload during dev
-- `wxt build` produces `dist/` — never commit this
+- Build output goes to `.output/` (hidden folder on macOS) — press **Cmd+Shift+.** in Finder to see it
 
 ---
 
@@ -79,3 +81,34 @@ bun run zip        # Package for Chrome Web Store
 - Don't use `useEffect` as a catch-all — question every dependency array
 - Don't mix business logic into UI components
 - Don't ship `console.log` — use a debug flag or remove entirely
+
+---
+
+## Lessons Learned — Bugs That Have Already Happened
+
+Do not repeat these mistakes.
+
+### 1. CSS not loading in Shadow DOM
+**Symptom:** Panel renders but is invisible or completely unstyled.
+**Cause:** `cssInjectionMode: 'ui'` only injects CSS files that are explicitly imported in the content script entry file. A `style.css` sitting in the same folder does nothing unless imported.
+**Fix:** Always add `import './style.css'` at the top of `index.ts`.
+
+### 2. Panel not mounting — wrong injection anchor
+**Symptom:** Panel never appears on the page.
+**Cause:** Anchoring to `#movie_player` places the shadow host *inside* `#player-theater-container`, which has `overflow: hidden` and a YouTube click-capture overlay. The panel is clipped and all pointer events are intercepted.
+**Fix:** Anchor to `#below-the-fold` with `append: 'before'`. This is outside the player container, in normal document flow, between the player and the video title.
+
+### 3. Clicks passing through the panel to YouTube elements
+**Symptom:** Clicking panel buttons triggers YouTube's title link or other underlying elements instead.
+**Cause:** Same as #2 — YouTube's overlay sits above anything injected inside the player container.
+**Fix:** Same as #2. Never inject inside `#movie_player` or `#player-theater-container`.
+
+### 4. Panel disappearing after YouTube SPA navigation
+**Symptom:** Panel shows on first load but disappears when navigating to another video.
+**Cause:** `waitForAnchor()` resolves immediately on navigation because `#below-the-fold` still exists from the prior page. `ui.mount()` attaches to the old element, then YouTube replaces that element, silently removing the panel with it.
+**Fix:** Use `waitForAnchorRefresh()` on navigation — wait for `#below-the-fold` to disappear then reappear (i.e. the fresh element). Also attach a `watchForRemoval()` MutationObserver on the panel's parent after every mount so any unexpected removal triggers an automatic re-mount.
+
+### 5. Edit/delete actions not firing
+**Symptom:** Clicking ✎ or ✕ buttons on mark chips does nothing.
+**Cause:** Same root cause as #2/#3 — YouTube's overlay intercepted pointer events before they reached the shadow DOM.
+**Fix:** Same as #2. Additionally, guard `onInscribe` with a `committed` flag to prevent the `blur` event from firing `confirm()` a second time after `Enter` already committed the value.
