@@ -254,26 +254,25 @@ function onInscribe(nameEl: HTMLElement, mark: Mark, videoId: string): void {
   input.select();
   input.focus();
 
-  const confirm = () => {
-    const newName = input.value.trim() || prevName;
-    mark.name = newName;
+  // Guard against double-commit: blur fires after Enter replaces the input
+  let committed = false;
+
+  const commit = (value: string) => {
+    if (committed) return;
+    committed = true;
+    mark.name = value.trim() || prevName;
     saveMarks(videoId, state.marks);
     input.replaceWith(nameEl);
-    nameEl.textContent = newName;
-  };
-
-  const cancel = () => {
-    input.replaceWith(nameEl);
-    nameEl.textContent = prevName;
+    nameEl.textContent = mark.name;
   };
 
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); confirm(); }
-    else if (e.key === 'Escape') { cancel(); }
+    if (e.key === 'Enter') { e.preventDefault(); commit(input.value); }
+    else if (e.key === 'Escape') { committed = true; input.replaceWith(nameEl); nameEl.textContent = prevName; }
     e.stopPropagation();
   });
 
-  input.addEventListener('blur', confirm);
+  input.addEventListener('blur', () => commit(input.value));
   input.addEventListener('click', (e) => e.stopPropagation());
 }
 

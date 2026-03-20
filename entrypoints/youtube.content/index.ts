@@ -1,14 +1,17 @@
 import './style.css';
 import { mountPanel, cleanupPanel } from './panel';
 
-function waitForPlayer(): Promise<void> {
+// Wait for the anchor that sits just before YouTube's title/metadata area.
+// #below-the-fold is outside the player container (no overflow:hidden, no overlays)
+// so our panel renders in normal document flow between player and title.
+function waitForAnchor(): Promise<void> {
   return new Promise((resolve) => {
-    if (document.querySelector('#movie_player')) {
+    if (document.querySelector('#below-the-fold')) {
       resolve();
       return;
     }
     const observer = new MutationObserver(() => {
-      if (document.querySelector('#movie_player')) {
+      if (document.querySelector('#below-the-fold')) {
         observer.disconnect();
         resolve();
       }
@@ -22,13 +25,13 @@ export default defineContentScript({
   cssInjectionMode: 'ui',
 
   async main(ctx) {
-    await waitForPlayer();
+    await waitForAnchor();
 
     const ui = await createShadowRootUi(ctx, {
       name: 'riff-mark-panel',
       position: 'inline',
-      anchor: '#movie_player',
-      append: 'after',
+      anchor: '#below-the-fold',
+      append: 'before',
       onMount(container) {
         mountPanel(container, ctx);
       },
@@ -41,7 +44,7 @@ export default defineContentScript({
 
     ctx.addEventListener(window, 'yt-navigate-finish', async () => {
       ui.remove();
-      await waitForPlayer();
+      await waitForAnchor();
       ui.mount();
     });
   },
