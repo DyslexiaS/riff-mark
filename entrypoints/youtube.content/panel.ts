@@ -1,6 +1,6 @@
 import type { ContentScriptContext } from 'wxt/utils/content-script-context';
 import type { Mark } from '../../utils/storage';
-import { getMarks, saveMarks } from '../../utils/storage';
+import { getMarks, saveMarks, updateHistory } from '../../utils/storage';
 import { getVideoId, getVideoElement } from '../../utils/youtube';
 import { formatTime } from '../../utils/time';
 import { stopLoop } from './loop-engine';
@@ -29,6 +29,10 @@ export async function mountPanel(container: HTMLElement, ctx: ContentScriptConte
 
   state.marks = await getMarks(videoId);
   state.activeMarkId = null;
+
+  if (state.marks.length > 0) {
+    updateHistory(videoId, document.title.replace(' - YouTube', '').trim());
+  }
 
   render(container, videoId, ctx);
 
@@ -185,6 +189,9 @@ function onDropMark(
 
   state.marks = [...state.marks, newMark].sort((a, b) => a.time - b.time);
   saveMarks(videoId, state.marks);
+  if (state.marks.length === 1) {
+    updateHistory(videoId, document.title.replace(' - YouTube', '').trim());
+  }
 
   dropBtn.classList.remove('rm-pulse');
   void dropBtn.offsetWidth;
